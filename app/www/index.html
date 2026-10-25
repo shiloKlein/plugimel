@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f6f7f4" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#12150f" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="עוזר מחלקה">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>עוזר מחלקה</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="styles/app.css">
+  <script src="lib/fatal.js"></script>
+</head>
+<body>
+  <aside class="side" id="side"></aside>
+  <div class="col">
+    <header class="topbar">
+      <h1 id="title">עוזר מחלקה</h1>
+      <button class="icon-btn" id="whoBtn" aria-label="חשבון"></button>
+    </header>
+    <main id="view"></main>
+  </div>
+  <nav class="tabbar" id="tabbar"></nav>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "platoon-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "עוזר מחלקה – אפליקציית אנדרואיד",
+  "scripts": {
+    "serve": "node -e \"require('http').createServer((q,r)=>require('fs').readFile('www'+(q.url.split('?')[0]==='/'?'/index.html':q.url.split('?')[0]),(e,d)=>{if(e){r.writeHead(404);r.end()}else{r.writeHead(200,{'content-type':{'.html':'text/html','.js':'text/javascript','.css':'text/css'}[require('path').extname(q.url.split('?')[0]||'.html')]||'text/html'});r.end(d)}})).listen(8080,()=>console.log('http://localhost:8080'))\"",
+    "sync": "cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/core": "^8.5.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.2"
+  }
+}
