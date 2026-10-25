@@ -55,6 +55,7 @@ function normalize(s) {
     if (s.place === undefined) s.place = s.squad || '';
     if (s.job === undefined) s.job = '';
     if (!s.service) s.service = 'full';
+    if (s.email === undefined) s.email = '';
     s.name = [s.first, s.last].filter(Boolean).join(' ');
   }
   return out;

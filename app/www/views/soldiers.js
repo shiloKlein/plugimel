@@ -9,19 +9,19 @@ let q = '';
 let mode = 'list';          // 'list' | 'organize'
 const sel = new Set();      // soldiers ticked in organize mode
 
-// One soldier per line. Columns (tab from Excel, or comma): שם פרטי | שם משפחה | תפקיד | מסגרת. The last two are optional.
+// One soldier per line. Columns (tab from Excel, or comma): שם פרטי | שם משפחה | תפקיד | מסגרת | מייל. The last three are optional.
 // A line with a single column is split at the first space (first name, rest = last name).
 export function parseNames(text) {
   const out = [], seen = new Set();
   for (const raw of String(text).split(/\r?\n/)) {
     const line = raw.replace(/[.‏‎]+$/g, '').trim();
     if (!line) continue;
-    let first, last, job = '', place = '';
+    let first, last, job = '', place = '', email = '';
     const cols = line.split(/\t|,/).map((x) => x.trim());
-    if (cols.length >= 2 && cols[0] && cols[1]) [first, last, job = '', place = ''] = cols;
+    if (cols.length >= 2 && cols[0] && cols[1]) [first, last, job = '', place = '', email = ''] = cols;
     else { const one = cols.find(Boolean) || ''; const m = one.match(/^(\S+)\s+(.*)$/); [first, last] = m ? [m[1], m[2]] : [one, '']; }
     const key = `${first} ${last}`;
-    if (!seen.has(key)) { seen.add(key); out.push({ first, last, job, place }); }
+    if (!seen.has(key)) { seen.add(key); out.push({ first, last, job, place, email: /^\S+@\S+\.\S+$/.test(email) ? email.toLowerCase() : '' }); }
   }
   return out;
 }
@@ -94,11 +94,21 @@ export function render(el, ctx) {
 function importSheet(ctx) {
   const { st, update } = ctx;
   const s = sheet(`<h3>ייבוא שמות</h3>
-    <p class="muted">הדבק מהאקסל, חייל בכל שורה. עמודות לפי הסדר: <b>שם פרטי | שם משפחה | תפקיד | מסגרת</b>. התפקיד והמסגרת לא חובה, ואפשר גם עמודה אחת של שם מלא. מה שחסר תשלים במסך "ארגון".</p>
-    <form><textarea name="t" rows="8" placeholder="דני לוי&#10;יוסי כהן" required></textarea>
+    <p class="muted">הדבק מהאקסל, חייל בכל שורה. עמודות לפי הסדר: <b>שם פרטי | שם משפחה | תפקיד | מסגרת | מייל</b>. מתפקיד והלאה לא חובה, ואפשר גם עמודה אחת של שם מלא. מה שחסר תשלים במסך "ארגון".</p>
+    <form><label class="btn ghost sm" style="margin:0 0 8px;color:var(--ink)">${icon('upload')}או בחר קובץ טקסט / CSV<input type="file" id="impfile" accept=".txt,.csv,.tsv,text/plain,text/csv" hidden></label>
+      <textarea name="t" rows="8" placeholder="דני לוי&#10;יוסי כהן" required></textarea>
       <p class="muted" id="count"></p>
       <div class="btnrow"><button class="btn">ייבא</button><button type="button" class="btn ghost" data-close>סגור</button></div></form>`);
   const ta = s.el.querySelector('textarea');
+  s.el.querySelector('#impfile').onchange = async (e) => {   // Hebrew Excel CSV is often windows-1255, not UTF-8
+    const file = e.target.files[0];
+    if (!file) return;
+    const buf = await file.arrayBuffer();
+    let text;
+    try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch { text = new TextDecoder('windows-1255').decode(buf); }
+    ta.value = text.replace(/^\uFEFF/, '');
+    ta.dispatchEvent(new Event('input'));
+  };
   const count = () => {
     const names = parseNames(ta.value), have = new Set(st.soldiers.map((x) => x.name));
     const fresh = names.filter((n) => !have.has(fullName(n.first, n.last)));
@@ -114,7 +124,7 @@ function importSheet(ctx) {
     update((d) => fresh.forEach((n) => {
       if (n.place && !d.settings.places.includes(n.place)) d.settings.places.push(n.place);
       if (n.job && !d.settings.jobs.includes(n.job)) d.settings.jobs.push(n.job);
-      d.soldiers.push({ id: newId(), first: n.first, last: n.last, name: fullName(n.first, n.last), platoon: d.soldiers.at(-1)?.platoon || '', place: n.place, job: n.job, service: 'full', quals: [], phone: '', active: true, joinedAt: Date.now() });
+      d.soldiers.push({ id: newId(), first: n.first, last: n.last, name: fullName(n.first, n.last), platoon: d.soldiers.at(-1)?.platoon || '', place: n.place, job: n.job, service: 'full', quals: [], phone: '', email: n.email || '', active: true, joinedAt: Date.now() });
     }));
     s.close();
     toast(`נוספו ${fresh.length} חיילים`);
@@ -131,6 +141,7 @@ function detailSheet(ctx, id) {
   const s = sheet(`<h3>${esc(sol.name)}</h3>
     <p class="muted">${esc(sol.place || 'ללא מסגרת')} · ${esc(sol.job || 'ללא תפקיד')} · ${SERVICE[sol.service] || ''}${(sol.quals || []).length ? ' · ' + esc(sol.quals.join(', ')) : ''}</p>
     <p><span class="badge ${t.kind}">${esc(t.label)}</span></p>
+    ${ctx.can('viewRequests') && sol.email ? `<p class="muted">${esc(sol.email)}</p>` : ''}
     ${ctx.can('viewRequests') && sol.phone ? `<p><a class="btn ghost sm" href="tel:${esc(sol.phone)}">${icon('phone')}${esc(sol.phone)}</a></p>` : ''}
     <h4>ציוד חתום</h4>
     ${gear.length ? `<ul>${gear.map((e) => `<li>${esc(itemLabel(st, e))}${e.condition !== 'ok' ? ` <span class="bad">(${CONDITIONS[e.condition]})</span>` : ''}</li>`).join('')}</ul>` : '<p class="muted">אין</p>'}
@@ -145,7 +156,7 @@ function detailSheet(ctx, id) {
 
 function editSheet(ctx, id) {
   const { st, update } = ctx;
-  const sol = id ? st.soldiers.find((s) => s.id === id) : { first: '', last: '', platoon: st.soldiers.at(-1)?.platoon || '', place: '', job: '', service: 'full', phone: '', quals: [], active: true };
+  const sol = id ? st.soldiers.find((s) => s.id === id) : { first: '', last: '', email: '', platoon: st.soldiers.at(-1)?.platoon || '', place: '', job: '', service: 'full', phone: '', quals: [], active: true };
   const s = sheet(`<h3>${id ? 'עריכת חייל' : 'חייל חדש'}</h3>
     <form>
       <div class="two"><label>שם פרטי<input name="first" value="${esc(sol.first)}" required></label><label>שם משפחה<input name="last" value="${esc(sol.last)}"></label></div>
@@ -153,6 +164,7 @@ function editSheet(ctx, id) {
         <label>תפקיד<select name="job"><option value="">—</option>${listOpts(st.settings.jobs, sol.job)}</select></label></div>
       <div class="two"><label>סוג שירות<select name="service">${opts(Object.entries(SERVICE), sol.service)}</select></label><label>מחלקה<input name="platoon" value="${esc(sol.platoon)}"></label></div>
       <label>טלפון (רק לצוות)<input name="phone" type="tel" value="${esc(sol.phone)}"></label>
+      <label>מייל Google של החייל (להתחברות לאפליקציה)<input name="email" type="email" inputmode="email" autocapitalize="none" value="${esc(sol.email || '')}" placeholder="name@gmail.com"></label>
       <fieldset><legend>הסמכות נוספות</legend>${QUALS.map((x) => `<label class="chk"><input type="checkbox" name="q" value="${x}"${(sol.quals || []).includes(x) ? ' checked' : ''}> ${x}</label>`).join('')}</fieldset>
       <label class="chk"><input type="checkbox" name="active"${sol.active !== false ? ' checked' : ''}> פעיל (לא פעיל = לא משובץ)</label>
       <div class="btnrow"><button class="btn">שמור</button>${id ? '<button type="button" class="btn danger" data-del>מחק</button>' : ''}<button type="button" class="btn ghost" data-close>סגור</button></div>
@@ -174,7 +186,9 @@ function editSheet(ctx, id) {
   s.el.querySelector('form').onsubmit = (e) => {
     e.preventDefault();
     const f = formObj(e.target);
-    const data = { first: f.first.trim(), last: f.last.trim(), place: f.place, job: f.job, service: f.service, platoon: f.platoon.trim(), phone: f.phone.trim(), quals: [...e.target.querySelectorAll('[name=q]:checked')].map((c) => c.value), active: !!e.target.active.checked };
+    const email = (f.email || '').trim().toLowerCase();
+    if (email && st.soldiers.some((x) => x.id !== id && (x.email || '') === email)) return toast('המייל הזה כבר שייך לחייל אחר');
+    const data = { email, first: f.first.trim(), last: f.last.trim(), place: f.place, job: f.job, service: f.service, platoon: f.platoon.trim(), phone: f.phone.trim(), quals: [...e.target.querySelectorAll('[name=q]:checked')].map((c) => c.value), active: !!e.target.active.checked };
     data.name = fullName(data.first, data.last);
     update((d) => {
       if (id) Object.assign(d.soldiers.find((x) => x.id === id), data);
