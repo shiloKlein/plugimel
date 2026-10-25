@@ -32,11 +32,14 @@ export function makeDemo() {
     }
   };
   give('נשק', 'M16', 26, 1, 4400100);
-  give('אפוד', 'אפוד קרמי', 25, 1, 8100);
-  give('אופטיקה', 'משקפת', 4, 1, 330);
-  give('נ"ג', 'נ"ג', 8, 3, 7700);
-  give('קשר', 'מכשיר קשר', 6, 4, 5500);
+  give('משקפת', '', 4, 1, 330);
+  give('קנספ', '', 3, 7, 910);
+  give('רימון', '', 20, 1, 5100);
   equipment[3].condition = 'broken';
+  // counted personal gear: one record per type and soldier
+  for (const [type, qty] of [['וסט', 1], ['קסדה', 1], ['מחסניות', 7]]) {
+    for (const s of soldiers) equipment.push({ id: newId(), type, name: '', serial: '', qty, condition: 'ok', holderId: s.id, note: '', log: [] });
+  }
   const requests = [
     { id: newId(), soldierId: soldiers[2].id, type: 'break', from: today + 14 * HOUR, to: today + 16 * HOUR, note: 'שיחת טלפון משפחתית', status: 'pending', created: now },
     { id: newId(), soldierId: soldiers[6].id, type: 'leave', from: today + 2 * DAY, to: today + 4 * DAY, note: 'חתונה', status: 'pending', created: now },

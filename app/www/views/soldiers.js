@@ -3,23 +3,25 @@ import { QUALS, CONDITIONS, SERVICE } from '../lib/store.js';
 import { statusOf } from '../lib/status.js';
 import { sheet, formObj, opts, toast, confirmDlg, avatar } from '../lib/ui.js';
 import { icon } from '../lib/icons.js';
+import { itemLabel } from './equipment.js';
 
 let q = '';
 let mode = 'list';          // 'list' | 'organize'
 const sel = new Set();      // soldiers ticked in organize mode
 
-// "דני לוי" / "דני<TAB>לוי" / "לוי, דני"-free: first word = first name, the rest = last name. A tab or comma splits columns.
+// One soldier per line. Columns (tab from Excel, or comma): שם פרטי | שם משפחה | תפקיד | מסגרת. The last two are optional.
+// A line with a single column is split at the first space (first name, rest = last name).
 export function parseNames(text) {
   const out = [], seen = new Set();
   for (const raw of String(text).split(/\r?\n/)) {
     const line = raw.replace(/[.‏‎]+$/g, '').trim();
     if (!line) continue;
-    let first, last;
-    const cols = line.split(/\t|,/).map((x) => x.trim()).filter(Boolean);
-    if (cols.length >= 2) [first, last] = [cols[0], cols.slice(1).join(' ')];
-    else { const m = line.match(/^(\S+)\s+(.*)$/); [first, last] = m ? [m[1], m[2]] : [line, '']; }
+    let first, last, job = '', place = '';
+    const cols = line.split(/\t|,/).map((x) => x.trim());
+    if (cols.length >= 2 && cols[0] && cols[1]) [first, last, job = '', place = ''] = cols;
+    else { const one = cols.find(Boolean) || ''; const m = one.match(/^(\S+)\s+(.*)$/); [first, last] = m ? [m[1], m[2]] : [one, '']; }
     const key = `${first} ${last}`;
-    if (!seen.has(key)) { seen.add(key); out.push({ first, last }); }
+    if (!seen.has(key)) { seen.add(key); out.push({ first, last, job, place }); }
   }
   return out;
 }
@@ -92,7 +94,7 @@ export function render(el, ctx) {
 function importSheet(ctx) {
   const { st, update } = ctx;
   const s = sheet(`<h3>ייבוא שמות</h3>
-    <p class="muted">הדבק עמודת שמות מהאקסל, שם בכל שורה. אפשר גם שתי עמודות (פרטי, משפחה). אחר כך תשייך מסגרת ותפקיד במסך "ארגון".</p>
+    <p class="muted">הדבק מהאקסל, חייל בכל שורה. עמודות לפי הסדר: <b>שם פרטי | שם משפחה | תפקיד | מסגרת</b>. התפקיד והמסגרת לא חובה, ואפשר גם עמודה אחת של שם מלא. מה שחסר תשלים במסך "ארגון".</p>
     <form><textarea name="t" rows="8" placeholder="דני לוי&#10;יוסי כהן" required></textarea>
       <p class="muted" id="count"></p>
       <div class="btnrow"><button class="btn">ייבא</button><button type="button" class="btn ghost" data-close>סגור</button></div></form>`);
@@ -109,7 +111,11 @@ function importSheet(ctx) {
     const have = new Set(st.soldiers.map((x) => x.name));
     const fresh = parseNames(ta.value).filter((n) => !have.has(fullName(n.first, n.last)));
     if (fresh.length) mode = 'organize';
-    update((d) => fresh.forEach((n) => d.soldiers.push({ id: newId(), first: n.first, last: n.last, name: fullName(n.first, n.last), platoon: d.soldiers.at(-1)?.platoon || '', place: '', job: '', service: 'full', quals: [], phone: '', active: true, joinedAt: Date.now() })));
+    update((d) => fresh.forEach((n) => {
+      if (n.place && !d.settings.places.includes(n.place)) d.settings.places.push(n.place);
+      if (n.job && !d.settings.jobs.includes(n.job)) d.settings.jobs.push(n.job);
+      d.soldiers.push({ id: newId(), first: n.first, last: n.last, name: fullName(n.first, n.last), platoon: d.soldiers.at(-1)?.platoon || '', place: n.place, job: n.job, service: 'full', quals: [], phone: '', active: true, joinedAt: Date.now() });
+    }));
     s.close();
     toast(`נוספו ${fresh.length} חיילים`);
   };
@@ -127,7 +133,7 @@ function detailSheet(ctx, id) {
     <p><span class="badge ${t.kind}">${esc(t.label)}</span></p>
     ${ctx.can('viewRequests') && sol.phone ? `<p><a class="btn ghost sm" href="tel:${esc(sol.phone)}">${icon('phone')}${esc(sol.phone)}</a></p>` : ''}
     <h4>ציוד חתום</h4>
-    ${gear.length ? `<ul>${gear.map((e) => `<li>${esc(e.type)} ${esc(e.name || '')} <b>${esc(e.serial || '')}</b>${e.condition !== 'ok' ? ` <span class="bad">(${CONDITIONS[e.condition]})</span>` : ''}</li>`).join('')}</ul>` : '<p class="muted">אין</p>'}
+    ${gear.length ? `<ul>${gear.map((e) => `<li>${esc(itemLabel(st, e))}${e.condition !== 'ok' ? ` <span class="bad">(${CONDITIONS[e.condition]})</span>` : ''}</li>`).join('')}</ul>` : '<p class="muted">אין</p>'}
     <h4>שמירות קרובות</h4>
     ${upcoming.length ? `<ul>${upcoming.map((x) => `<li>${fmtDay(x.start)} ${timeRange(x.start, x.end)} · ${esc((st.posts.find((p) => p.id === x.postId) || {}).name || '')}</li>`).join('')}</ul>` : '<p class="muted">אין</p>'}
     <div class="btnrow">${ctx.can('editSoldiers') ? '<button class="btn" data-edit>עריכה</button>' : ''}<button class="btn ghost" data-close>סגור</button></div>`);

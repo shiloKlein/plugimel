@@ -33,6 +33,13 @@ export function render(el, ctx) {
       <button class="btn">שמור רשימות</button>
     </form>
 
+    <h3>רשימת ציוד</h3>
+    <form id="gear" class="card pad">
+      <div class="two"><label>ציוד עם צלם (מספר סידורי)<textarea name="equip" rows="8">${esc(cfg.equipTypes.join('\n'))}</textarea></label>
+        <label>ציוד אישי (כמות)<textarea name="gear" rows="8">${esc(cfg.gearTypes.join('\n'))}</textarea></label></div>
+      <button class="btn">שמור רשימות ציוד</button>
+    </form>
+
     <h3>כללי השיבוץ</h3>
     <form id="rules" class="card pad">
       <div class="grid">${NUM.map(([k, l, min, max]) => `<label>${l}<input type="number" name="${k}" min="${min}" max="${max}" step="any" value="${cfg[k]}"></label>`).join('')}</div>
@@ -80,6 +87,11 @@ export function render(el, ctx) {
     if (e.target.id === 'lists') {
       const f = formObj(e.target), lines = (t) => [...new Set(t.split(/\r?\n/).map((x) => x.trim()).filter(Boolean))];
       ctx.update((d) => { d.settings.places = lines(f.places); d.settings.jobs = lines(f.jobs); });
+      toast('נשמר');
+    }
+    if (e.target.id === 'gear') {
+      const f = formObj(e.target), lines = (t) => [...new Set(t.split(/\r?\n/).map((x) => x.trim()).filter(Boolean))];
+      ctx.update((d) => { d.settings.equipTypes = lines(f.equip); d.settings.gearTypes = lines(f.gear); });
       toast('נשמר');
     }
     if (e.target.id === 'pair') {

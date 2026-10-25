@@ -12,7 +12,9 @@ export const DEFAULT_SETTINGS = {
   separate: [],               // pairs of soldier ids that should not be on the same shift
   jobs: ['מ"מ', 'סמל', 'מ"כ', 'לוחם', 'קלע', 'נגב', 'מטול', 'מאג', 'חובש', 'קשר'],   // תפקיד
   places: ['מ"מ', 'סמל', 'כיתה א', 'כיתה ב', 'כיתה ג'],                                // מסגרת
-  equipTypes: ['נשק', 'אופטיקה', 'נ"ג', 'קשר', 'אפוד', 'קסדה', 'אחר'],
+  // Equipment catalog (from the unit's Excel). Numbered items (צ = serial number) and counted personal gear (חתימות). Both lists are editable in settings.
+  equipTypes: ['נשק', 'כוונת', 'קלע', 'נגב', 'מאג', 'קנספ', 'M5', 'טריג\'', 'אקילה', 'ליאור', 'מכבים', 'שחמ', 'עדי', 'מטול', 'זאבון', 'אולר', 'ציין', 'משקפת', 'מצפן', 'רימון'],
+  gearTypes: ['וסט', 'קסדה', 'נעליים', 'ברכיות', 'מחסניות', 'שלוקר', 'משקפי מגן', 'חע', 'תא', 'מדים', 'חלפס', 'רצועה לנשק', 'שקש', 'קיטבג'],
 };
 export const ABSENCE_TYPES = { leave: 'חופשה', sick: 'גימלים', course: 'קורס', mission: 'משימה', appt: 'תור / פגישה', break: 'הפסקה', other: 'אחר' };
 export const ROLES = { admin: 'מנהל', officer: 'קצין', sergeant: 'סמל' };
@@ -47,6 +49,7 @@ function normalize(s) {
   const out = { ...base, ...s, settings: { ...base.settings, ...(s && s.settings) } };
   for (const k of ['users', 'soldiers', 'absences', 'posts', 'roster', 'equipment', 'requests']) if (!Array.isArray(out[k])) out[k] = [];
   if (!out.round || !out.round.start) out.round = defaultRound();
+  if (JSON.stringify(out.settings.equipTypes) === JSON.stringify(['נשק', 'אופטיקה', 'נ"ג', 'קשר', 'אפוד', 'קסדה', 'אחר'])) out.settings.equipTypes = [...DEFAULT_SETTINGS.equipTypes];   // old placeholder list
   for (const s of out.soldiers) {          // older data: single name / squad
     if (s.first === undefined) { const [f, ...r] = String(s.name || '').split(' '); s.first = f || ''; s.last = r.join(' '); }
     if (s.place === undefined) s.place = s.squad || '';
