@@ -7,12 +7,13 @@ Hebrew RTL helper for a platoon/company: who is in/out, auto guard roster (שמ�
 - Views are in `www/views/*.js` and export `render(el, ctx)`. Each assigns `el.onclick`, not addEventListener, because `render` is called again on every data change.
 - Soldier = first/last name + `place` (מסגרת: מ"מ/סמל/כיתה א..) + `job` (תפקיד: מ"כ/נגב/קלע..) + `service` (מלא/חלקי/סטודנט). A job also works as a qualification for posts. Places and jobs are editable lists in settings. `state.round` = the service round (start/end); `newRound()` in store.js resets a round and keeps soldiers. Names are imported by pasting (`parseNames` in views/soldiers.js).
 - `views/calendar.js` + `lib/hebdate.js` (copied from tshuva-helper) give the Hebrew calendar with holidays, expected presence per day and job coverage.
+- Drive sync: `lib/sync.js` (no DOM/Google, tested with a fake Drive: conflict = Drive file version moved while we have unsaved changes), `lib/drive.js` (Google Identity Services token flow + Drive REST + Picker, scope `drive.file` only), `lib/syncui.js` (the sheet), `lib/config.js` (client ID / API key / project number, public by design). The whole state is one JSON file `plugimel-data.json` in a Drive folder `plugimel`; the first phone creates it, others pick it with the Google Picker. Google Cloud project `plugimel` (number 438526458930), consent screen still in Testing: only listed test users can sign in and sign-in lasts 7 days; publish it to remove that.
 - Demo data is `lib/demo.js` (`state.demo` is set). It can be deleted from Settings.
 
 - UI: mobile first. Bottom tab bar on phones (with an "עוד" menu for requests/settings/login), sidebar from 900px. Design tokens and dark mode are at the top of `styles/app.css`. Icons are inline SVG from `lib/icons.js`; `avatar()` in `lib/ui.js` gives the colored initials circle.
 
 ## Not done yet
-- Google Drive sync (JSON files in a shared folder, check for newer file before saving). It needs a Google Cloud OAuth setup, so see `../tshuva-helper/app/www/lib/drive-app.js` for how that app did it.
+- Soldier side of Drive: soldier login, a view file everyone reads, one inbox file per soldier (daily equipment checks, equipment transfer reports the sergeant approves). Staff sync is done.
 - Release signing (`app/build-apk.cmd` makes a debug-signed `platoon-helper.apk` for testing; tools are in `C:\dev\tools`), icons, shift reminders.
 - Export (to discuss): Excel report and WhatsApp-ready summaries of various data (attendance, roster, equipment). Only the roster share exists so far.
 - Import from the user's reserve-duty Excel (`מעקב מילואים - נוכחות ותפקידים.xlsx`): names are done (paste). Equipment is entered in the app, not imported. Possible later: the פקל sheet (expected kit per position) to compare with what a soldier actually signed for.

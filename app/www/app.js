@@ -11,6 +11,10 @@ import * as soldiers from './views/soldiers.js';
 import * as equipment from './views/equipment.js';
 import * as requests from './views/requests.js';
 import * as settings from './views/settings.js';
+import * as drive from './lib/drive.js';
+import { createSync } from './lib/sync.js';
+import { openSyncSheet, joinExisting, statusText, statusClass } from './lib/syncui.js';
+import { confirmDlg } from './lib/ui.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -26,6 +30,28 @@ const VIEWS = {
 };
 
 let user = null;
+
+// ───── Drive sync
+let conflictShown = false;
+const sync = createSync({ api: drive.api, getState: () => store.get(), applyRemote: (d) => store.replaceAll(d), onStatus: onSyncStatus });
+const syncDeps = () => ({ sync, drive, store, toast, confirm: confirmDlg });
+
+function renderSync(s = sync.snapshot()) {
+  const b = $('syncBtn');
+  if (b) { b.innerHTML = icon('cloud') + `<i class="sdot ${statusClass(s)}"></i>`; b.setAttribute('aria-label', 'סנכרון: ' + statusText(s)); }
+  const l = $('syncLabel');
+  if (l) l.textContent = 'סנכרון · ' + (s.connected ? statusText(s) : 'כבוי');
+}
+function onSyncStatus(s) {
+  renderSync(s);
+  if (s.status === 'conflict' && !conflictShown) { conflictShown = true; openSyncSheet(syncDeps()); }
+  if (s.status !== 'conflict') conflictShown = false;
+}
+async function syncTick() {
+  if (!sync.isConnected()) return;
+  try { await drive.signIn({ interactive: false }); } catch { return sync.needAuth(); }
+  sync.syncNow();
+}
 
 const ctx = () => ({ st: store.get(), user, can: (p) => store.can(user, p), update: store.update });
 const visible = () => Object.keys(VIEWS).filter((k) => !VIEWS[k].perm || store.can(user, VIEWS[k].perm));
@@ -50,10 +76,11 @@ function render() {
   $('tabbar').innerHTML = main.map((k) => link(k)).join('') +
     `<button class="${inMore ? 'active' : ''}" data-more>${icon('more')}<span>עוד</span>${pending ? `<i class="dot">${pending}</i>` : ''}</button>`;
   $('side').innerHTML = `<div class="brand"><img src="icons/icon.svg" alt="">עוזר מחלקה</div><nav>${ids.map((k) => link(k)).join('')}</nav>
-    <div class="side-foot">${user ? `<div class="who"><span class="me">${esc(user.name[0] || '?')}</span>${esc(user.name)}</div><button class="side-btn" data-act="logout">${icon('logout')}יציאה</button>`
+    <div class="side-foot"><button class="side-btn" data-sync>${icon('cloud')}<span id="syncLabel"></span></button>${user ? `<div class="who"><span class="me">${esc(user.name[0] || '?')}</span>${esc(user.name)}</div><button class="side-btn" data-act="logout">${icon('logout')}יציאה</button>`
       : `<button class="side-btn" data-act="login">${icon('login')}כניסת צוות</button>`}</div>`;
 
   VIEWS[view].mod.render($('view'), ctx());
+  renderSync();
 }
 
 function moreSheet() {
@@ -72,6 +99,7 @@ function moreSheet() {
 }
 
 document.addEventListener('click', (e) => {
+  if (e.target.closest('#syncBtn') || e.target.closest('[data-sync]')) return openSyncSheet(syncDeps());
   if (e.target.closest('[data-more]') || e.target.closest('#whoBtn')) return moreSheet();
   const a = e.target.closest('.side-foot [data-act]')?.dataset.act;
   if (a === 'logout') { auth.logout(); render(); }
@@ -101,7 +129,10 @@ function setup() {
       <label>שם המנהל<input name="name" required></label>
       <label>סיסמה (לפחות 4 תווים)<input type="password" name="pw" minlength="4" required autocomplete="new-password"></label>
       <label class="chk"><input type="checkbox" name="demo" checked> טען נתוני דמו לבדיקה</label>
-      <button class="btn block">התחל</button></form></div>`;
+      <button class="btn block">התחל</button></form>
+    <div class="divider">או</div>
+    <button class="btn ghost block" id="join">${icon('cloud')}יש כבר נתונים ב-Drive? התחברות</button></div>`;
+  $('join').onclick = () => joinExisting(syncDeps());
   $('setup').onsubmit = async (e) => {
     e.preventDefault();
     const f = formObj(e.target);
@@ -115,9 +146,15 @@ function setup() {
 }
 
 store.load();
-store.onChange(() => { if (store.get().users.length) render(); });
+store.onChange(() => { if (!sync.isApplying()) sync.markDirty(); if (store.get().users.length) render(); });
 window.addEventListener('hashchange', () => { window.scrollTo(0, 0); render(); });
 if (store.get().users.length) render(); else setup();
+
+// Keep in step with Drive: on open, when the app comes back to the front, when the connection returns, and once a minute.
+syncTick();
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncTick(); });
+window.addEventListener('online', syncTick);
+setInterval(() => { if (document.visibilityState === 'visible') syncTick(); }, 60000);
 
 // Installable + works offline
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./sw.js').catch(() => {});
