@@ -3,6 +3,7 @@ import { CONDITIONS } from '../lib/store.js';
 import { soldierName } from '../lib/status.js';
 import { sheet, formObj, opts, toast, confirmDlg, avatar } from '../lib/ui.js';
 import { icon } from '../lib/icons.js';
+import { gearIcon } from '../lib/gearicons.js';
 import { drawTransfers, pendingTransfers } from './transfers.js';
 
 // Two kinds of equipment:
@@ -106,10 +107,14 @@ function soldierSheet(ctx, sid) {
   const g = st.equipment.filter((i) => i.holderId === sid);
   const s = sheet(`<h3>${esc(soldierName(st, sid))} — חתום על</h3>
     <div class="card">${g.map((i) => `<div class="row static"><button class="grow lnk" data-item="${i.id}"><b>${esc(itemLabel(st, i))}</b>${i.condition !== 'ok' ? ` <span class="bad">${CONDITIONS[i.condition]}</span>` : ''}</button>${edit ? `<button class="btn sm ghost" data-ret="${i.id}">החזר למחסן</button>` : ''}</div>`).join('') || '<p class="empty">לא חתום על ציוד</p>'}</div>
-    <div class="btnrow">${edit ? '<button class="btn" data-sign>חתום על ציוד</button>' : ''}<button class="btn ghost" data-close>סגור</button></div>`);
+    ${edit ? `<button class="btn block" data-addtoggle>${icon('plus')}הוסף ציוד</button><div class="typegrid" id="tg" hidden>${[...st.settings.equipTypes, ...st.settings.gearTypes].map((t) => `<button class="tg" data-addtype="${esc(t)}">${gearIcon(t)}<span>${esc(t)}</span></button>`).join('')}</div>` : ''}
+    <div class="btnrow">${edit ? '<button class="btn ghost" data-sign>חתום מהמחסן</button>' : ''}<button class="btn ghost" data-close>סגור</button></div>`);
   s.el.onclick = (e) => {
     if (e.target.closest('[data-close]')) return s.close();
     if (e.target.closest('[data-sign]')) { s.close(); return signSheet(ctx, sid); }
+    if (e.target.closest('[data-addtoggle]')) { const g = s.el.querySelector('#tg'); g.hidden = !g.hidden; if (!g.hidden) g.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); return; }
+    const at = e.target.closest('[data-addtype]');
+    if (at) { s.close(); return itemSheet(ctx, null, { type: at.dataset.addtype, holderId: sid }); }
     const ret = e.target.closest('[data-ret]');
     if (ret) {
       update((d) => { const x = d.equipment.find((i) => i.id === ret.dataset.ret); (x.log ||= []).push({ t: Date.now(), from: sid, to: null }); x.holderId = null; });
@@ -144,21 +149,21 @@ function signSheet(ctx, sid) {
   };
 }
 
-function itemSheet(ctx, id) {
+function itemSheet(ctx, id, preset = {}) {
   const { st, update } = ctx;
   const edit = ctx.can('editEquipment');
-  const it = id ? st.equipment.find((i) => i.id === id) : { type: st.settings.equipTypes[0] || st.settings.gearTypes[0] || '', name: '', serial: '', qty: 1, condition: 'ok', holderId: '', note: '' };
+  const it = id ? st.equipment.find((i) => i.id === id) : { type: st.settings.equipTypes[0] || st.settings.gearTypes[0] || '', name: '', serial: '', qty: 1, condition: 'ok', holderId: '', note: '', ...preset };
   const dis = edit ? '' : ' disabled';
   const all = [...new Set([...st.settings.equipTypes, ...st.settings.gearTypes, it.type])].filter(Boolean);
   const typeOpts = (sel) => `<optgroup label="ציוד עם צלם">${opts(st.settings.equipTypes.map((t) => [t, t]), sel)}</optgroup><optgroup label="ציוד אישי (כמות)">${opts(st.settings.gearTypes.map((t) => [t, t]), sel)}</optgroup>${all.some((t) => !st.settings.equipTypes.includes(t) && !st.settings.gearTypes.includes(t)) ? `<option value="${esc(it.type)}" selected>${esc(it.type)}</option>` : ''}`;
-  const s = sheet(`<h3>${id ? 'פרטי פריט' : 'ציוד חדש'}</h3><form>
+  const s = sheet(`<h3>${id ? 'פרטי פריט' : 'ציוד חדש'}${!id && preset.holderId ? ' · ' + esc(soldierName(st, preset.holderId)) : ''}</h3>${!id && preset.type ? `<div class="gbig">${gearIcon(preset.type)}</div>` : ''}<form>
     <label>סוג<select name="type"${dis}>${typeOpts(it.type)}</select></label>
     <div data-numbered><div class="${id ? 'two' : ''}"><label>דגם / שם<input name="name" value="${esc(it.name)}"${dis}></label>
       ${id ? `<label>מספר סידורי<input name="serial" value="${esc(it.serial)}"${dis}></label>` : ''}</div>
       ${id ? '' : '<label>מספרים סידוריים (אחד בכל שורה, אפשר להדביק מאקסל)<textarea name="serials" rows="3"></textarea></label>'}</div>
     <div data-counted><label>כמות<input type="number" name="qty" min="1" max="99" value="${qtyOf(it)}"${dis}></label></div>
     <div class="two"><label>מצב<select name="condition"${dis}>${opts(Object.entries(CONDITIONS), it.condition)}</select></label>
-      <label>חתום על<select name="holder"${dis}><option value="">— במחסן —</option>${opts(st.soldiers.map((x) => [x.id, x.name]), it.holderId)}</select></label></div>
+      <label>חתום על / אחראי<select name="holder"${dis}><option value="">— במחסן —</option>${opts(st.soldiers.map((x) => [x.id, x.name]), it.holderId)}</select></label></div>
     <label>הערה<input name="note" value="${esc(it.note)}"${dis}></label>
     ${id && it.log && it.log.length ? `<details><summary>היסטוריית חתימות</summary><ul>${it.log.slice(-8).reverse().map((l) => `<li>${fmtDateTime(l.t)}: ${esc(l.from ? soldierName(st, l.from) : 'מחסן')} ← ${esc(l.to ? soldierName(st, l.to) : 'מחסן')}${l.qty ? ' (×' + l.qty + ')' : ''}</li>`).join('')}</ul></details>` : ''}
     <div class="btnrow">${edit ? '<button class="btn">שמור</button>' : ''}${edit && id ? '<button type="button" class="btn danger" data-del>מחק</button>' : ''}<button type="button" class="btn ghost" data-close>סגור</button></div></form>`);

@@ -294,3 +294,12 @@ details.all { margin: 10px 0; }
 details.all > summary { cursor: pointer; padding: 12px 14px; background: var(--surface-2); border-radius: var(--r-sm); list-style: none; font-weight: 600; }
 details.all > summary::-webkit-details-marker { display: none; }
 details.all[open] > summary { margin-bottom: 4px; }
+
+/* equipment type picker */
+.typegrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; }
+.typegrid[hidden] { display: none; }
+.tg { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px 8px; border: 1.5px solid var(--line); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); font-weight: 650; font-size: 13px; cursor: pointer; }
+.tg:active, .tg:hover { border-color: var(--brand); background: var(--brand-soft); }
+.tg .gico { width: 100%; height: 34px; color: var(--brand); }
+.gbig { display: flex; justify-content: center; margin: 4px 0 10px; }
+.gbig .gico { width: 120px; height: 60px; color: var(--brand); }

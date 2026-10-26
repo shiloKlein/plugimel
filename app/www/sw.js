@@ -1,9 +1,9 @@
 // Offline support. Network first (so a new version shows up right away), cached copy when offline.
 // Bump CACHE when you want old caches thrown away.
-const CACHE = 'platoon-v6';
+const CACHE = 'platoon-v7';
 const CORE = [
   './', 'index.html', 'app.js', 'manifest.webmanifest', 'styles/app.css', 'icons/icon.svg',
-  'lib/fatal.js', 'lib/config.js', 'lib/drive.js', 'lib/sync.js', 'lib/syncui.js', 'lib/util.js', 'lib/store.js', 'lib/auth.js', 'lib/ui.js', 'lib/icons.js', 'lib/scheduler.js', 'lib/status.js', 'lib/demo.js', 'lib/hebdate.js', 'lib/checks.js', 'lib/whatsapp.js', 'lib/presence.js', 'views/presenceplan.js',
+  'lib/fatal.js', 'lib/config.js', 'lib/drive.js', 'lib/sync.js', 'lib/syncui.js', 'lib/util.js', 'lib/store.js', 'lib/auth.js', 'lib/ui.js', 'lib/icons.js', 'lib/scheduler.js', 'lib/status.js', 'lib/demo.js', 'lib/hebdate.js', 'lib/checks.js', 'lib/whatsapp.js', 'lib/presence.js', 'lib/gearicons.js', 'views/presenceplan.js',
   'views/board.js', 'views/roster.js', 'views/calendar.js', 'views/soldiers.js', 'views/equipment.js', 'views/requests.js', 'views/settings.js', 'views/checks.js', 'views/daysheet.js', 'views/transfers.js',
 ];
 
