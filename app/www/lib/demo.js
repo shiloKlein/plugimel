@@ -11,7 +11,7 @@ export function makeDemo() {
   const jobOf = (i) => (i === 0 ? 'מ"מ' : i === 1 ? 'סמל' : [2, 9, 16].includes(i) ? 'מ"כ' : [3, 10, 17].includes(i) ? 'נגב' : [4, 11].includes(i) ? 'קלע' : i === 12 ? 'מטול' : i === 5 ? 'חובש' : 'לוחם');
   const soldiers = NAMES.map((name, i) => {
     const [first, ...rest] = name.split(' ');
-    return { id: newId(), first, last: rest.join(' '), name, platoon: 'מחלקה 1', place: placeOf(i), job: jobOf(i), service: i === 19 ? 'student' : i === 20 ? 'part' : 'full', quals: [], phone: '', active: true, joinedAt: 0 };
+    return { id: newId(), first, last: rest.join(' '), name, platoon: 'מחלקה 1', place: placeOf(i), job: jobOf(i), service: i === 19 ? 'student' : i === 20 ? 'part' : 'full', quals: [], phone: '0505550' + String(i).padStart(3, '0'), active: true, joinedAt: 0 };
   });
   const posts = [
     { id: newId(), name: 'שער ראשי', people: 2, shiftHours: 4, from: 0, to: 24, qual: '' },

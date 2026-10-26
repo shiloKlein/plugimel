@@ -3,6 +3,8 @@ import { ABSENCE_TYPES } from '../lib/store.js';
 import { statusOf, roundInfo } from '../lib/status.js';
 import { sheet, formObj, opts, toast, avatar } from '../lib/ui.js';
 import { icon } from '../lib/icons.js';
+import { dayStatus, checksEnabled } from '../lib/checks.js';
+import { dayStart } from '../lib/util.js';
 
 let platoon = '';
 
@@ -21,6 +23,7 @@ export function render(el, ctx) {
   el.innerHTML = `
     ${platoons.length > 1 ? `<select id="platoon" class="full"><option value="">כל המחלקות</option>${opts(platoons.map((p) => [p, p]), platoon)}</select>` : ''}
     <p class="muted roundline">${esc(st.round.name)} · ${roundInfo(st).inRound ? `יום ${roundInfo(st).n} מתוך ${roundInfo(st).total}` : 'היום מחוץ לסבב'}</p>
+    <a class="card chkcard" href="#checks">${checksEnabled(st) ? st.settings.checks.map((c) => { const s = dayStatus(st, dayStart(Date.now()), c); return `<span class="chkpill ${s.state}"><b>${esc(c.name)}</b> ${s.total ? s.done + '/' + s.total : '—'}</span>`; }).join('') : '<span class="muted">בדיקות יומיות כבויות. לחץ להפעלה</span>'}${icon('chevron', 'faint')}</a>
     <div class="tiles">
       <div class="tile all"><span class="ti">${icon('users')}</span><b>${rows.length}</b><span>סה"כ</span></div>
       <div class="tile ok"><span class="ti">${icon('check')}</span><b>${base.length + duty.length}</b><span>בבסיס</span></div>

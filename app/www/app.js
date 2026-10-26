@@ -11,6 +11,7 @@ import * as soldiers from './views/soldiers.js';
 import * as equipment from './views/equipment.js';
 import * as requests from './views/requests.js';
 import * as settings from './views/settings.js';
+import * as checks from './views/checks.js';
 import * as drive from './lib/drive.js';
 import { createSync } from './lib/sync.js';
 import { openSyncSheet, joinExisting, statusText, statusClass } from './lib/syncui.js';
@@ -20,11 +21,12 @@ const $ = (id) => document.getElementById(id);
 
 // `more: true` items live in the "עוד" menu on phones (and in the sidebar on wide screens).
 const VIEWS = {
-  board: { mod: board, title: 'מצב כוח אדם', label: 'לוח', icon: 'board' },
+  board: { mod: board, title: 'מצב כוח אדם', label: 'לוח', icon: 'board', perm: 'viewPresence' },
   roster: { mod: roster, title: 'שמירות', label: 'שמירות', icon: 'shield' },
   calendar: { mod: calendar, title: 'יומן', label: 'יומן', icon: 'calendar' },
   soldiers: { mod: soldiers, title: 'חיילים', label: 'חיילים', icon: 'users' },
   equipment: { mod: equipment, title: 'ציוד', label: 'ציוד', icon: 'box' },
+  checks: { mod: checks, title: 'בדיקות ציוד', label: 'בדיקות ציוד', icon: 'check', perm: 'viewPresence', more: true },
   requests: { mod: requests, title: 'בקשות', label: 'בקשות', icon: 'clipboard', perm: 'viewRequests', more: true },
   settings: { mod: settings, title: 'הגדרות', label: 'הגדרות', icon: 'sliders', perm: 'editRules', more: true },
 };

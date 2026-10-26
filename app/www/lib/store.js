@@ -1,4 +1,5 @@
 import { dayStart, addDays } from './util.js';
+import { defaultChecks } from './checks.js';
 
 // All data lives in one JSON object. Saved on the phone; Drive sync will plug in at persist()/onChange().
 const KEY = 'platoon.v1';
@@ -26,13 +27,16 @@ export const QUALS = ['מפקד', 'חובש', 'נהג', 'מקלען', 'קשר'];
 export const CONDITIONS = { ok: 'תקין', broken: 'תקול', lost: 'אבד' };
 
 // Who may do what. Soldiers (no login) can only view the board, roster, soldiers and equipment.
+// Admin = owner of the app (users, backup/restore, wipe). Officer and sergeant can do everything with the data.
+const STAFF = ['admin', 'officer', 'sergeant'];
 const PERMS = {
-  viewRequests: ['admin', 'officer', 'sergeant'],
-  editRoster: ['admin', 'officer'],
-  editSoldiers: ['admin', 'officer'],
-  editRequests: ['admin', 'officer'],
-  editRules: ['admin', 'officer'],
-  editEquipment: ['admin', 'sergeant'],
+  viewPresence: STAFF,     // who is in the base, and why
+  viewRequests: STAFF,
+  editRoster: STAFF,
+  editSoldiers: STAFF,
+  editRequests: STAFF,
+  editRules: STAFF,
+  editEquipment: STAFF,
   manageUsers: ['admin'],
   manageData: ['admin'],
 };
@@ -42,13 +46,16 @@ let state = null;
 const subs = new Set();
 
 const defaultRound = () => { const t = dayStart(Date.now()); return { name: 'סבב 1', start: t, end: addDays(t, 27) }; };
-const empty = () => ({ v: 1, round: defaultRound(), settings: { ...DEFAULT_SETTINGS }, users: [], soldiers: [], absences: [], posts: [], roster: [], equipment: [], requests: [], demo: false, updatedAt: 0 });
+const empty = () => ({ v: 1, round: defaultRound(), settings: { ...DEFAULT_SETTINGS }, users: [], soldiers: [], absences: [], posts: [], roster: [], equipment: [], requests: [], transfers: [], checkLog: {}, demo: false, updatedAt: 0 });
 
 function normalize(s) {
   const base = empty();
   const out = { ...base, ...s, settings: { ...base.settings, ...(s && s.settings) } };
   for (const k of ['users', 'soldiers', 'absences', 'posts', 'roster', 'equipment', 'requests']) if (!Array.isArray(out[k])) out[k] = [];
   if (!out.round || !out.round.start) out.round = defaultRound();
+  if (!Array.isArray(out.transfers)) out.transfers = [];
+  if (!out.checkLog || typeof out.checkLog !== 'object') out.checkLog = {};
+  if (!Array.isArray(out.settings.checks)) out.settings.checks = defaultChecks(out.settings.equipTypes);
   if (JSON.stringify(out.settings.equipTypes) === JSON.stringify(['נשק', 'אופטיקה', 'נ"ג', 'קשר', 'אפוד', 'קסדה', 'אחר'])) out.settings.equipTypes = [...DEFAULT_SETTINGS.equipTypes];   // old placeholder list
   for (const s of out.soldiers) {          // older data: single name / squad
     if (s.first === undefined) { const [f, ...r] = String(s.name || '').split(' '); s.first = f || ''; s.last = r.join(' '); }

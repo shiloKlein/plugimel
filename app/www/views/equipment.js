@@ -3,6 +3,7 @@ import { CONDITIONS } from '../lib/store.js';
 import { soldierName } from '../lib/status.js';
 import { sheet, formObj, opts, toast, confirmDlg, avatar } from '../lib/ui.js';
 import { icon } from '../lib/icons.js';
+import { drawTransfers, pendingTransfers } from './transfers.js';
 
 // Two kinds of equipment:
 //  - numbered (צלם): one record per item, with a serial number  (settings.equipTypes)
@@ -26,10 +27,10 @@ export function render(el, ctx) {
   const items = st.equipment;
   const hasGear = st.settings.gearTypes.length > 0;
   if (tab === 'gear' && !hasGear) tab = 'soldier';
-  const tabs = [['sum', 'סיכום'], ['soldier', 'לפי חייל'], ['items', 'פריטים'], ...(hasGear ? [['gear', 'חתימות']] : [])];
+  const tabs = [['sum', 'סיכום'], ['soldier', 'לפי חייל'], ['items', 'פריטים'], ...(hasGear ? [['gear', 'חתימות']] : []), ['transfers', 'העברות' + (pendingTransfers(st) ? ' (' + pendingTransfers(st) + ')' : '')]];
   el.innerHTML = `
     <div class="seg">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>
-    ${edit && tab !== 'gear' ? `<div class="bar"><span class="grow"></span><button class="btn" data-act="add">${icon('plus')}ציוד</button></div>` : ''}
+    ${edit && tab !== 'gear' && tab !== 'transfers' ? `<div class="bar"><span class="grow"></span><button class="btn" data-act="add">${icon('plus')}ציוד</button></div>` : ''}
     <div id="body"></div>`;
   const body = el.querySelector('#body');
 
@@ -46,6 +47,8 @@ export function render(el, ctx) {
     } else if (tab === 'soldier') {
       const rows = st.soldiers.filter((s) => s.active !== false);
       body.innerHTML = `<div class="card">${rows.map((s) => `<button class="row" data-sol="${s.id}">${avatar(st, s)}<span class="grow"><div class="t">${esc(s.name)}</div><div class="s">${holdings(st, s.id) || 'ללא ציוד'}</div></span>${icon('chevron', 'faint')}</button>`).join('') || '<p class="empty">אין חיילים</p>'}</div>`;
+    } else if (tab === 'transfers') {
+      drawTransfers(body, ctx, edit);
     } else if (tab === 'gear') {
       const cols = st.settings.gearTypes, rows = st.soldiers.filter((s) => s.active !== false);
       const get = (sid, t) => items.find((i) => i.type === t && i.holderId === sid);

@@ -238,3 +238,31 @@ table.gear tbody th, table.gear tfoot th { position: sticky; inset-inline-start:
 table.gear thead th:first-child { z-index: 3; inset-inline-start: 0; }
 table.gear tfoot td, table.gear tfoot th { border-bottom: 0; background: var(--surface-2); }
 table.gear input { width: 54px; min-height: 36px; margin: 0; padding: 4px; text-align: center; border-radius: 10px; }
+
+/* daily checks, calendar dots, board card */
+.chkcard { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px 14px; margin-bottom: 12px; text-decoration: none; }
+.chkcard .ic { margin-inline-start: auto; }
+.chkpill { display: inline-flex; gap: 6px; align-items: center; padding: 4px 12px; border-radius: 99px; font-size: 13px; background: var(--surface-2); }
+.chkpill.ok { background: var(--ok-soft); color: var(--ok); } .chkpill.bad { background: var(--bad-soft); color: var(--bad); } .chkpill.pending { background: var(--warn-soft); color: var(--warn); }
+.chk-sum { margin-bottom: 10px; } .chk-sum .pct { font-size: 22px; font-weight: 800; }
+.chk-sum.ok .pct { color: var(--ok); } .chk-sum.bad .pct { color: var(--bad); } .chk-sum.pending .pct { color: var(--warn); }
+.bar-track { height: 8px; border-radius: 4px; background: var(--surface-2); margin-top: 10px; overflow: hidden; }
+.bar-track i { display: block; height: 100%; border-radius: 4px; background: var(--ok); transition: width .25s; }
+.chk-sum.bad .bar-track i { background: var(--bad); } .chk-sum.pending .bar-track i { background: var(--warn); }
+.hist { display: flex; gap: 5px; overflow-x: auto; padding: 4px 2px 10px; direction: ltr; }
+.hist .h { flex: none; width: 30px; height: 36px; border: 0; border-radius: 9px; background: var(--surface-2); color: var(--muted); font-weight: 700; cursor: pointer; }
+.hist .h.ok { background: var(--ok-soft); color: var(--ok); } .hist .h.bad { background: var(--bad-soft); color: var(--bad); } .hist .h.pending { background: var(--warn-soft); color: var(--warn); }
+.hist .h.sel { outline: 2px solid var(--brand); }
+.chk-grp { margin-bottom: 10px; } .pad2 { padding: 4px 14px 14px; }
+.chip.ck.ok { background: var(--ok-soft); border-color: color-mix(in srgb, var(--ok) 50%, transparent); }
+.chip.ck.away { background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 50%, transparent); }
+.chip.ck.missing { background: var(--bad-soft); border-color: var(--bad); }
+.chip.ck { padding: 8px 14px; }
+.btn.ghost.on { background: var(--brand-soft); color: var(--brand); }
+.dots { display: flex; gap: 3px; min-height: 8px; margin-top: 2px; }
+.dt { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+.dt.guard { background: var(--duty); } .dt.pend { background: var(--warn); } .dt.c-ok { background: var(--ok); } .dt.c-bad { background: var(--bad); } .dt.c-pending { background: var(--warn); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+.legend span { display: inline-flex; gap: 5px; align-items: center; }
+
+a.btn { text-decoration: none; }

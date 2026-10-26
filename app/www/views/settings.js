@@ -1,6 +1,7 @@
 import { esc, newId } from '../lib/util.js';
 import { ROLES, QUALS, clearData, replaceAll, newRound } from '../lib/store.js';
 import { fromDateInput, toDateInput, DAY } from '../lib/util.js';
+import { defaultChecks } from '../lib/checks.js';
 import { makeUser, setPassword } from '../lib/auth.js';
 import { makeDemo } from '../lib/demo.js';
 import { sheet, formObj, opts, toast, confirmDlg } from '../lib/ui.js';
@@ -38,6 +39,15 @@ export function render(el, ctx) {
       <div class="two"><label>ציוד עם צלם (מספר סידורי)<textarea name="equip" rows="8">${esc(cfg.equipTypes.join('\n'))}</textarea></label>
         <label>ציוד אישי (כמות)<textarea name="gear" rows="8">${esc(cfg.gearTypes.join('\n'))}</textarea></label></div>
       <button class="btn">שמור רשימות ציוד</button>
+    </form>
+
+    <h3>בדיקות יומיות</h3>
+    <form id="checks" class="card pad">
+      <label>בדיקות מתחילות בתאריך (ריק = כבוי)<input type="date" name="from" value="${cfg.checksFrom ? toDateInput(cfg.checksFrom) : ''}"></label>
+      ${cfg.checks.map((c, i) => `<div class="card pad" style="background:var(--surface-2);box-shadow:none;margin-top:8px"><label>שם הבדיקה<input name="n${i}" value="${esc(c.name)}"></label>
+        <label>סוגי ציוד בבדיקה (שורה לכל סוג)<textarea name="t${i}" rows="4">${esc(c.types.join('\n'))}</textarea></label></div>`).join('')}
+      <button class="btn block">שמור בדיקות</button>
+      <button type="button" class="btn ghost block" data-act="resetchecks">אפס לברירת מחדל (רימונים + צל"מ)</button>
     </form>
 
     <h3>כללי השיבוץ</h3>
@@ -94,6 +104,14 @@ export function render(el, ctx) {
       ctx.update((d) => { d.settings.equipTypes = lines(f.equip); d.settings.gearTypes = lines(f.gear); });
       toast('נשמר');
     }
+    if (e.target.id === 'checks') {
+      const f = formObj(e.target), lines = (t) => [...new Set(t.split(/\r?\n/).map((x) => x.trim()).filter(Boolean))];
+      ctx.update((d) => {
+        d.settings.checksFrom = f.from ? fromDateInput(f.from) : 0;
+        d.settings.checks = d.settings.checks.map((c, i) => ({ ...c, name: (f['n' + i] || c.name).trim(), types: lines(f['t' + i] || '') }));
+      });
+      toast('נשמר');
+    }
     if (e.target.id === 'pair') {
       const { a, b } = formObj(e.target);
       if (a === b) return toast('בחר שני חיילים שונים');
@@ -113,6 +131,7 @@ export function render(el, ctx) {
     if (!b) return;
     const a = b.dataset.act;
     if (a === 'newround') return roundSheet(ctx);
+    if (a === 'resetchecks' && await confirmDlg('לאפס את הבדיקות לברירת המחדל?', 'אפס')) { ctx.update((d) => { d.settings.checks = defaultChecks(d.settings.equipTypes); }); toast('אופס'); }
     if (a === 'unpair') ctx.update((d) => d.settings.separate.splice(+b.dataset.i, 1));
     if (a === 'post') postSheet(ctx, b.dataset.id);
     if (a === 'user') userSheet(ctx, b.dataset.id);

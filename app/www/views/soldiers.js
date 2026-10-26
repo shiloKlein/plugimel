@@ -48,7 +48,7 @@ export function render(el, ctx) {
     list.innerHTML = Object.entries(groups).sort((a, b) => placeRank(st, a[0]) - placeRank(st, b[0])).map(([g, arr]) => `<h3>${esc(g)} (${arr.length})</h3><div class="card">${arr.map((s) => {
       const t = statusOf(st, s.id), n = st.equipment.filter((e) => e.holderId === s.id).length;
       return `<button class="row" data-act="open" data-id="${s.id}">${avatar(st, s)}<span class="grow"><div class="t">${esc(s.name)}${s.active === false ? ' <span class="muted">(לא פעיל)</span>' : ''}</div>
-        <div class="s">${esc(s.job || 'ללא תפקיד')}${s.service && s.service !== 'full' ? ' · ' + SERVICE[s.service] : ''}${n ? ' · ' + n + ' פריטי ציוד' : ''}</div></span><span class="badge ${t.kind}">${esc(t.label)}</span></button>`;
+        <div class="s">${esc(s.job || 'ללא תפקיד')}${s.service && s.service !== 'full' ? ' · ' + SERVICE[s.service] : ''}${n ? ' · ' + n + ' פריטי ציוד' : ''}</div></span>${ctx.can('viewPresence') ? `<span class="badge ${t.kind}">${esc(t.label)}</span>` : ''}</button>`;
     }).join('')}</div>`).join('');
   };
 
@@ -140,7 +140,7 @@ function detailSheet(ctx, id) {
   const upcoming = st.roster.filter((x) => x.people.includes(id) && x.end > Date.now()).sort((a, b) => a.start - b.start).slice(0, 6);
   const s = sheet(`<h3>${esc(sol.name)}</h3>
     <p class="muted">${esc(sol.place || 'ללא מסגרת')} · ${esc(sol.job || 'ללא תפקיד')} · ${SERVICE[sol.service] || ''}${(sol.quals || []).length ? ' · ' + esc(sol.quals.join(', ')) : ''}</p>
-    <p><span class="badge ${t.kind}">${esc(t.label)}</span></p>
+    ${ctx.can('viewPresence') ? `<p><span class="badge ${t.kind}">${esc(t.label)}</span></p>` : ''}
     ${ctx.can('viewRequests') && sol.email ? `<p class="muted">${esc(sol.email)}</p>` : ''}
     ${ctx.can('viewRequests') && sol.phone ? `<p><a class="btn ghost sm" href="tel:${esc(sol.phone)}">${icon('phone')}${esc(sol.phone)}</a></p>` : ''}
     <h4>ציוד חתום</h4>

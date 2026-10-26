@@ -24,8 +24,8 @@ export function render(el, ctx) {
   const next = who ? st.roster.filter((x) => x.people.includes(who) && x.end > Date.now()).sort((a, b) => a.start - b.start)[0] : null;
 
   const chip = (sh, sid, a) => {
-    const cls = a.conflict ? 'bad' : a.reasons.length ? 'warn' : '';
-    const tip = [a.conflict, ...a.reasons].filter(Boolean).join(' · ');
+    const cls = edit ? (a.conflict ? 'bad' : a.reasons.length ? 'warn' : '') : '';
+    const tip = edit ? [a.conflict, ...a.reasons].filter(Boolean).join(' · ') : '';
     const sol = st.soldiers.find((x) => x.id === sid) || { name: '?' };
     return `<button class="chip ${cls}" data-act="seat" data-shift="${sh.id}" data-sid="${sid}" title="${esc(tip)}">${avatar(st, sol, 'sm')}<span class="txt">${esc(sol.name)}${tip ? `<small>${esc(tip)}</small>` : ''}</span></button>`;
   };
