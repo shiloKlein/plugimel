@@ -108,7 +108,7 @@ function soldierSheet(ctx, sid) {
   const s = sheet(`<h3>${esc(soldierName(st, sid))} — חתום על</h3>
     <div class="card">${g.map((i) => `<div class="row static"><button class="grow lnk" data-item="${i.id}"><b>${esc(itemLabel(st, i))}</b>${i.condition !== 'ok' ? ` <span class="bad">${CONDITIONS[i.condition]}</span>` : ''}</button>${edit ? `<button class="btn sm ghost" data-ret="${i.id}">החזר למחסן</button>` : ''}</div>`).join('') || '<p class="empty">לא חתום על ציוד</p>'}</div>
     ${edit ? `<button class="btn block" data-addtoggle>${icon('plus')}הוסף ציוד</button><div class="typegrid" id="tg" hidden>${[...st.settings.equipTypes, ...st.settings.gearTypes].map((t) => `<button class="tg" data-addtype="${esc(t)}">${gearIcon(t)}<span>${esc(t)}</span></button>`).join('')}</div>` : ''}
-    <div class="btnrow">${edit ? '<button class="btn ghost" data-sign>חתום מהמחסן</button>' : ''}<button class="btn ghost" data-close>סגור</button></div>`);
+    <div class="btnrow">${edit && st.equipment.some((i) => !i.holderId && !isCounted(st, i.type)) ? '<button class="btn ghost" data-sign>חתום מהמחסן</button>' : ''}<button class="btn ghost" data-close>סגור</button></div>`);
   s.el.onclick = (e) => {
     if (e.target.closest('[data-close]')) return s.close();
     if (e.target.closest('[data-sign]')) { s.close(); return signSheet(ctx, sid); }

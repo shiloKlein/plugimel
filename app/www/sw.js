@@ -1,6 +1,6 @@
 // Offline support. Network first (so a new version shows up right away), cached copy when offline.
 // Bump CACHE when you want old caches thrown away.
-const CACHE = 'platoon-v7';
+const CACHE = 'platoon-v8';
 const CORE = [
   './', 'index.html', 'app.js', 'manifest.webmanifest', 'styles/app.css', 'icons/icon.svg',
   'lib/fatal.js', 'lib/config.js', 'lib/drive.js', 'lib/sync.js', 'lib/syncui.js', 'lib/util.js', 'lib/store.js', 'lib/auth.js', 'lib/ui.js', 'lib/icons.js', 'lib/scheduler.js', 'lib/status.js', 'lib/demo.js', 'lib/hebdate.js', 'lib/checks.js', 'lib/whatsapp.js', 'lib/presence.js', 'lib/gearicons.js', 'views/presenceplan.js',
