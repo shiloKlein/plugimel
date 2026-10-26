@@ -1,4 +1,5 @@
 import { esc, newId } from '../lib/util.js';
+import { KINDS, postKind, roleCount } from '../lib/scheduler.js';
 import { ROLES, QUALS, clearData, replaceAll, newRound } from '../lib/store.js';
 import { fromDateInput, toDateInput, DAY } from '../lib/util.js';
 import { defaultChecks } from '../lib/checks.js';
@@ -63,8 +64,8 @@ export function render(el, ctx) {
       <form id="pair" class="bar"><select name="a">${opts(st.soldiers.map((s) => [s.id, s.name]))}</select><select name="b">${opts(st.soldiers.map((s) => [s.id, s.name]))}</select><button class="btn sm">הוסף</button></form>
     </div>
 
-    <h3>עמדות שמירה</h3>
-    <div class="card">${st.posts.map((p) => `<button class="row" data-act="post" data-id="${p.id}"><b class="grow">${esc(p.name)}</b><span class="muted">${p.people} אנשים · ${p.shiftHours} ש׳ · ${p.from}:00–${p.to}:00${p.qual ? ' · ' + esc(p.qual) : ''}</span></button>`).join('') || '<p class="empty">אין עמדות</p>'}</div>
+    <h3>עמדות, סיורים ויזומות</h3>
+    <div class="card">${st.posts.map((p) => `<button class="row" data-act="post" data-id="${p.id}"><b class="grow">${esc(p.name)}</b><span class="muted">${postKind(p) === 'guard' ? '' : KINDS[postKind(p)] + ' · '}${postKind(p) === 'guard' ? `${p.people} אנשים · ${p.shiftHours} ש׳ · ${p.from}:00–${p.to}:00` : `${roleCount(p) || p.people} אנשים · ${p.shiftHours} ש׳`}${p.qual ? ' · ' + esc(p.qual) : ''}</span></button>`).join('') || '<p class="empty">אין עמדות</p>'}</div>
     <div class="bar"><button class="btn" data-act="post">+ עמדה</button></div>
 
     ${ctx.can('manageUsers') ? `
@@ -150,14 +151,27 @@ export function render(el, ctx) {
 
 function postSheet(ctx, id) {
   const { st, update } = ctx;
-  const p = id ? st.posts.find((x) => x.id === id) : { name: '', people: 1, shiftHours: 4, from: 0, to: 24, qual: '' };
+  const p = id ? st.posts.find((x) => x.id === id) : { name: '', people: 1, shiftHours: 4, from: 0, to: 24, qual: '', kind: 'guard', roles: [] };
+  const kind = postKind(p);
+  const rolesText = (p.roles || []).map((r) => [r.label, r.qual, r.n].join(' | ')).join('\n');
   const s = sheet(`<h3>${id ? 'עריכת עמדה' : 'עמדה חדשה'}</h3><form>
+    <label>סוג<select name="kind">${opts(Object.entries(KINDS), kind)}</select></label>
     <label>שם<input name="name" value="${esc(p.name)}" required></label>
-    <div class="two"><label>אנשים בשמירה<input type="number" name="people" min="1" max="10" value="${p.people}"></label><label>אורך משמרת (שעות)<input type="number" name="shiftHours" min="1" max="24" value="${p.shiftHours}"></label></div>
-    <div class="two"><label>פעילה מ (שעה)<input type="number" name="from" min="0" max="23" value="${p.from}"></label><label>עד (שעה)<input type="number" name="to" min="1" max="30" value="${p.to}"></label></div>
+    <div class="two"><label>אנשים בשמירה<input type="number" name="people" min="1" max="10" value="${p.people}"></label><label data-k="len">אורך משמרת (שעות)<input type="number" name="shiftHours" min="1" max="24" value="${p.shiftHours}"></label></div>
+    <div class="two" data-k="guard"><label>פעילה מ (שעה)<input type="number" name="from" min="0" max="23" value="${p.from}"></label><label>עד (שעה)<input type="number" name="to" min="1" max="30" value="${p.to}"></label></div>
     <label>דורש תפקיד / הסמכה<select name="qual"><option value="">— ללא —</option>${opts([...new Set([...st.settings.jobs, ...QUALS])].map((q) => [q, q]), p.qual)}</select></label>
-    <p class="muted">0 עד 24 = כל היום. אם "עד" קטן מ"מ" העמדה נמשכת אחרי חצות (למשל 20 עד 6).</p>
+    <p class="muted" data-k="guard">0 עד 24 = כל היום. אם "עד" קטן מ"מ" העמדה נמשכת אחרי חצות (למשל 20 עד 6).</p>
+    <label data-k="roles">הרכב (שורה לכל תפקיד: שם | הסמכה | כמות)<textarea name="roles" rows="4" placeholder="מפקד | מפקד | 1&#10;סמל או קצין | סמל,מ&quot;מ | 1&#10;לוחם | | 3">${esc(rolesText)}</textarea></label>
+    <p class="muted" data-k="roles">הסמכה ריקה = כל חייל. אפשר כמה חלופות עם פסיק. סיור ויזומה לא נוצרים אוטומטית, מוסיפים אותם במסך השמירות בכפתור "+".</p>
     <div class="btnrow"><button class="btn">שמור</button>${id ? '<button type="button" class="btn danger" data-del>מחק</button>' : ''}<button type="button" class="btn ghost" data-close>סגור</button></div></form>`);
+  const kindSel = s.el.querySelector('[name=kind]');
+  const sync = () => {
+    const k = kindSel.value;
+    s.el.querySelectorAll('[data-k=guard]').forEach((n) => { n.hidden = k !== 'guard'; });
+    s.el.querySelectorAll('[data-k=roles]').forEach((n) => { n.hidden = k === 'guard'; });
+    s.el.querySelector('[data-k=len]').firstChild.textContent = k === 'guard' ? 'אורך משמרת (שעות)' : 'משך רגיל (שעות)';
+  };
+  kindSel.onchange = sync; sync();
   s.el.onclick = async (e) => {
     if (e.target.closest('[data-close]')) s.close();
     if (e.target.closest('[data-del]') && await confirmDlg('למחוק את העמדה? שמירות עתידיות שלה יימחקו.', 'מחק')) {
@@ -168,7 +182,9 @@ function postSheet(ctx, id) {
   s.el.querySelector('form').onsubmit = (e) => {
     e.preventDefault();
     const f = formObj(e.target);
-    const data = { name: f.name.trim(), people: +f.people, shiftHours: +f.shiftHours, from: +f.from, to: +f.to, qual: f.qual };
+    const roles = f.kind === 'guard' ? [] : String(f.roles || '').split('\n').map((l) => l.split('|').map((x) => x.trim())).filter((r) => r[0] || r[1])
+      .map((r) => ({ label: r[0] || r[1], qual: r[1] || '', n: Math.max(1, Math.min(20, parseInt(r[2], 10) || 1)) }));
+    const data = { name: f.name.trim(), kind: f.kind, roles, people: roles.length ? roles.reduce((n, r) => n + r.n, 0) : +f.people, shiftHours: +f.shiftHours, from: +f.from, to: +f.to, qual: f.qual };
     update((d) => { if (id) Object.assign(d.posts.find((x) => x.id === id), data); else d.posts.push({ id: newId(), ...data }); });
     s.close();
   };

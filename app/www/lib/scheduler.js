@@ -7,7 +7,7 @@
 // (short rest, night after night, "not together" pairs). The lowest score gets the seat.
 // Hard filters only: not absent, not on another shift at that time, has the post's qualification.
 import { HOUR, DAY, dayStart, addDays, overlap, newId } from './util.js';
-import { COMMANDER_JOBS } from './store.js';
+import { COMMANDER_JOBS, ABSENCE_TYPES } from './store.js';
 
 const STEP = 15 * 60e3;
 
@@ -27,7 +27,22 @@ export function isNight(start, end, s) {
 }
 
 export const isAvailable = (st, sid, start, end) => !st.absences.some((a) => a.soldierId === sid && overlap(a.from, a.to, start, end));
-export const hasQual = (sol, post) => !post || !post.qual || sol.job === post.qual || (sol.quals || []).includes(post.qual) || (post.qual === 'מפקד' && COMMANDER_JOBS.includes(sol.job));
+// A qualification may list alternatives separated by commas ("סמל,מ"מ" = either). 'מפקד' is satisfied by any commander job.
+const qualOne = (sol, q) => sol.job === q || (sol.quals || []).includes(q) || (q === 'מפקד' && COMMANDER_JOBS.includes(sol.job));
+export const qualOk = (sol, qual) => !qual || String(qual).split(',').map((q) => q.trim()).filter(Boolean).some((q) => qualOne(sol, q));
+export const hasQual = (sol, post, qual = post && post.qual) => !post || qualOk(sol, qual);
+
+// Posts are guard posts (auto-filled), or patrols / missions (placed by hand; may have roles: [{label, qual, n}]).
+export const postKind = (post) => (post && post.kind) || 'guard';
+export const KINDS = { guard: 'שמירה', patrol: 'סיור', mission: 'יזומה' };
+export const expandRoles = (post) => ((post && post.roles) || []).flatMap((r) => Array.from({ length: Math.max(1, +r.n || 1) }, () => ({ label: r.label || '', qual: r.qual || '' })));
+export const roleCount = (post) => expandRoles(post).length;
+// Role seats of a shift not yet filled (indexes into expandRoles). shift.roles maps soldierId -> role index.
+export function openRoles(post, shift) {
+  const all = expandRoles(post), used = new Set(Object.values(shift.roles || {}));
+  return all.map((r, i) => ({ ...r, i })).filter((r) => !used.has(r.i));
+}
+const roleOf = (post, shift, sid) => { const r = shift.roles && shift.roles[sid]; return r == null ? null : expandRoles(post)[r] || null; };
 
 // Absent for part of the window, or joined inside it: should not look "free" just because they have few points.
 const isPartial = (st, sol, t) => {
@@ -74,18 +89,54 @@ function evaluate(st, sol, slot, working, seated, avg) {
 }
 
 // Eligible soldiers for a shift, best first. excludeId = the person being replaced (shown as a candidate again).
-export function rank(st, slot, working, { excludeId = null } = {}) {
+export function rank(st, slot, working, { excludeId = null, qual } = {}) {
   const post = st.posts.find((p) => p.id === slot.postId);
   const seated = slot.people.filter((p) => p !== excludeId);
   const avg = windowAverage(st, slot, working);
   const out = [];
   for (const sol of st.soldiers) {
-    if (sol.active === false || seated.includes(sol.id) || !hasQual(sol, post)) continue;
+    if (sol.active === false || seated.includes(sol.id) || !hasQual(sol, post, qual === undefined ? post && post.qual : qual)) continue;
     if (!isAvailable(st, sol.id, slot.start, slot.end)) continue;
     const r = evaluate(st, sol, slot, working, seated, avg);
     if (r) out.push({ ...r, jitter: Math.random() });
   }
   return out.sort((a, b) => a.score - b.score || a.jitter - b.jitter);
+}
+
+// Everybody who could be placed on a shift, with the full picture, for a person doing it by hand. Nobody is hidden:
+// `conflict` (absent, already on another shift, missing qualification) is a warning the user can override,
+// `reasons` are softer problems (short rest, night after night, not together). Free soldiers first, lowest points first.
+export function candidates(st, slot, { excludeId = null, qual } = {}) {
+  const post = st.posts.find((p) => p.id === slot.postId);
+  const q = qual === undefined ? post && post.qual : qual;
+  const seated = slot.people.filter((p) => p !== excludeId);
+  const avg = windowAverage(st, slot, st.roster);
+  const nameOfPost = (x) => ((st.posts.find((p) => p.id === x.postId) || {}).name) || '';
+  const out = [];
+  for (const sol of st.soldiers) {
+    if (sol.active === false || seated.includes(sol.id)) continue;
+    const mine = st.roster.filter((x) => x.id !== slot.id && x.people.includes(sol.id));
+    const prev = mine.filter((x) => x.end <= slot.start).sort((a, b) => b.end - a.end)[0] || null;
+    const next = mine.filter((x) => x.start >= slot.end).sort((a, b) => a.start - b.start)[0] || null;
+    const clash = mine.find((x) => overlap(x.start, x.end, slot.start, slot.end));
+    const away = st.absences.find((a) => a.soldierId === sol.id && overlap(a.from, a.to, slot.start, slot.end));
+    let conflict = null;
+    if (away) conflict = `נעדר (${ABSENCE_TYPES[away.type] || away.type})`;
+    else if (clash) conflict = `משובץ במקביל: ${nameOfPost(clash)}`;
+    else if (!hasQual(sol, post, q)) conflict = `חסר ${q}`;
+    const ev = clash ? null : evaluate(st, sol, slot, st.roster, seated, avg);
+    const raw = windowPoints(st, sol.id, slot, st.roster);
+    const dayMs = dayStart(slot.start);
+    const today = mine.filter((x) => x.start < dayMs + DAY && x.end > dayMs).sort((a, b) => a.start - b.start);
+    out.push({
+      soldier: sol, conflict, reasons: ev ? ev.reasons : [], points: ev ? ev.points : raw, partial: ev ? ev.partial : false,
+      prev: prev && { end: prev.end, post: nameOfPost(prev) }, next: next && { start: next.start, post: nameOfPost(next) },
+      today: today.map((x) => ({ start: x.start, end: x.end, post: nameOfPost(x) })),
+      score: ev ? ev.score : raw, jitter: Math.random(),
+    });
+  }
+  const tier = (c) => (c.conflict ? 2 : c.reasons.length ? 1 : 0);
+  return out.sort((a, b) => tier(a) - tier(b) || a.score - b.score || a.jitter - b.jitter);
 }
 
 // Live check of an existing shift: conflicts (red) and soft problems (yellow) per person.
@@ -99,7 +150,10 @@ export function assess(st, shift) {
     if (sol.active === false) conflict = 'לא פעיל';
     else if (!isAvailable(st, sid, shift.start, shift.end)) conflict = 'נעדר';
     else if (st.roster.some((x) => x.id !== shift.id && x.people.includes(sid) && overlap(x.start, x.end, shift.start, shift.end))) conflict = 'משובץ במקביל';
-    else if (!hasQual(sol, post)) conflict = `חסר ${post.qual}`;
+    else {
+      const role = roleOf(post, shift, sid), q = role ? role.qual : post && post.qual;
+      if (!hasQual(sol, post, q)) conflict = `חסר ${q}`;
+    }
     const ev = conflict ? null : evaluate(st, sol, shift, st.roster, shift.people.filter((p) => p !== sid), 0);
     out[sid] = { conflict, reasons: ev ? ev.reasons : [] };
   }
@@ -110,6 +164,7 @@ export function buildSlots(st, from, to) {
   const slots = [];
   for (let day = dayStart(from); day < to; day = addDays(day, 1)) {
     for (const post of st.posts) {
+      if (postKind(post) !== 'guard') continue;
       const open = day + post.from * HOUR;
       const close = day + (post.to <= post.from ? post.to + 24 : post.to) * HOUR;
       for (let t = open; t < close; t += post.shiftHours * HOUR) {

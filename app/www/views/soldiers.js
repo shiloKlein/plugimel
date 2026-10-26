@@ -1,5 +1,7 @@
-import { esc, newId, timeRange, fmtDay, fullName } from '../lib/util.js';
-import { QUALS, CONDITIONS, SERVICE } from '../lib/store.js';
+import { esc, newId, timeRange, fmtDay, fmtShort, dayStart, fullName } from '../lib/util.js';
+import { QUALS, CONDITIONS, SERVICE, ABSENCE_TYPES } from '../lib/store.js';
+import { upcomingAbsences } from '../lib/presence.js';
+import { openPresenceSheet } from './presenceplan.js';
 import { statusOf } from '../lib/status.js';
 import { sheet, formObj, opts, toast, confirmDlg, avatar } from '../lib/ui.js';
 import { icon } from '../lib/icons.js';
@@ -137,20 +139,23 @@ function detailSheet(ctx, id) {
   if (!sol) return;
   const t = statusOf(st, id);
   const gear = st.equipment.filter((e) => e.holderId === id);
+  const plans = upcomingAbsences(st, Date.now(), [id]).slice(0, 6);
   const upcoming = st.roster.filter((x) => x.people.includes(id) && x.end > Date.now()).sort((a, b) => a.start - b.start).slice(0, 6);
   const s = sheet(`<h3>${esc(sol.name)}</h3>
     <p class="muted">${esc(sol.place || 'ללא מסגרת')} · ${esc(sol.job || 'ללא תפקיד')} · ${SERVICE[sol.service] || ''}${(sol.quals || []).length ? ' · ' + esc(sol.quals.join(', ')) : ''}</p>
     ${ctx.can('viewPresence') ? `<p><span class="badge ${t.kind}">${esc(t.label)}</span></p>` : ''}
     ${ctx.can('viewRequests') && sol.email ? `<p class="muted">${esc(sol.email)}</p>` : ''}
     ${ctx.can('viewRequests') && sol.phone ? `<p><a class="btn ghost sm" href="tel:${esc(sol.phone)}">${icon('phone')}${esc(sol.phone)}</a></p>` : ''}
+    ${ctx.can('editRequests') ? `<h4>נוכחות מתוכננת</h4>${plans.length ? `<ul>${plans.map((a) => `<li>${esc(ABSENCE_TYPES[a.type] || a.type)} · ${fmtShort(a.from)}${dayStart(a.from) === dayStart(a.to - 1) ? '' : ' – ' + fmtShort(a.to - 1)}${a.note ? ' · ' + esc(a.note) : ''}</li>`).join('')}</ul>` : '<p class="muted">אין</p>'}` : ''}
     <h4>ציוד חתום</h4>
     ${gear.length ? `<ul>${gear.map((e) => `<li>${esc(itemLabel(st, e))}${e.condition !== 'ok' ? ` <span class="bad">(${CONDITIONS[e.condition]})</span>` : ''}</li>`).join('')}</ul>` : '<p class="muted">אין</p>'}
     <h4>שמירות קרובות</h4>
     ${upcoming.length ? `<ul>${upcoming.map((x) => `<li>${fmtDay(x.start)} ${timeRange(x.start, x.end)} · ${esc((st.posts.find((p) => p.id === x.postId) || {}).name || '')}</li>`).join('')}</ul>` : '<p class="muted">אין</p>'}
-    <div class="btnrow">${ctx.can('editSoldiers') ? '<button class="btn" data-edit>עריכה</button>' : ''}<button class="btn ghost" data-close>סגור</button></div>`);
+    <div class="btnrow">${ctx.can('editRequests') ? '<button class="btn" data-plan>תכנון נוכחות</button>' : ''}${ctx.can('editSoldiers') ? '<button class="btn ghost" data-edit>עריכה</button>' : ''}<button class="btn ghost" data-close>סגור</button></div>`);
   s.el.onclick = (e) => {
     if (e.target.closest('[data-close]')) s.close();
     if (e.target.closest('[data-edit]')) { s.close(); editSheet(ctx, id); }
+    if (e.target.closest('[data-plan]')) { s.close(); openPresenceSheet(ctx, { sids: [id], only: true }); }
   };
 }
 

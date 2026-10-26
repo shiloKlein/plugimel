@@ -8,7 +8,9 @@ import { drawTransfers, pendingTransfers } from './transfers.js';
 // Two kinds of equipment:
 //  - numbered (צלם): one record per item, with a serial number  (settings.equipTypes)
 //  - counted personal gear (חתימות): one record per type and holder, with a quantity  (settings.gearTypes)
-let tab = 'soldier', type = '', q = '';
+let tab = 'soldier', type = '', q = '', sq = '', stat = '';
+const STATS = [['', 'הכל'], ['signed', 'חתום'], ['store', 'במחסן'], ['bad', 'תקול']];
+const keepFocus = (body, sel, fn) => { const inp = body.querySelector(sel), pos = inp.selectionStart; fn(); const n = body.querySelector(sel); n.focus(); n.setSelectionRange(pos, pos); };
 
 export const isCounted = (st, t) => st.settings.gearTypes.includes(t);
 const qtyOf = (i) => (i.qty == null ? 1 : i.qty);
@@ -45,8 +47,12 @@ export function render(el, ctx) {
         return `<button class="row" data-type="${esc(t)}"><b class="grow">${esc(t)}</b><span class="muted">סה"כ ${total}</span><span>חתומים ${signed}</span><span class="${total - signed ? 'warnTxt' : 'muted'}">במחסן ${total - signed}</span>${bad ? `<span class="bad">תקולים ${bad}</span>` : ''}</button>`;
       }).join('') || '<p class="empty">אין ציוד</p>'}</div>`;
     } else if (tab === 'soldier') {
-      const rows = st.soldiers.filter((s) => s.active !== false);
-      body.innerHTML = `<div class="card">${rows.map((s) => `<button class="row" data-sol="${s.id}">${avatar(st, s)}<span class="grow"><div class="t">${esc(s.name)}</div><div class="s">${holdings(st, s.id) || 'ללא ציוד'}</div></span>${icon('chevron', 'faint')}</button>`).join('') || '<p class="empty">אין חיילים</p>'}</div>`;
+      const hit = (s) => !sq || s.name.includes(sq) || st.equipment.some((i) => i.holderId === s.id && `${i.type} ${i.name} ${i.serial}`.includes(sq));
+      const rows = st.soldiers.filter((s) => s.active !== false && hit(s));
+      const places = [...new Set(rows.map((s) => s.place || ''))];
+      const row = (s) => `<button class="row" data-sol="${s.id}">${avatar(st, s)}<span class="grow"><div class="t">${esc(s.name)}</div><div class="s">${holdings(st, s.id) || 'ללא ציוד'}</div></span>${icon('chevron', 'faint')}</button>`;
+      body.innerHTML = `<div class="bar"><input id="sq" type="search" placeholder="שם חייל או מספר צלם" value="${esc(sq)}"></div>${places.length ? places.map((p) => `${places.length > 1 ? `<div class="post-h"><b>${esc(p || 'ללא מסגרת')}</b></div>` : ''}<div class="card">${rows.filter((s) => (s.place || '') === p).map(row).join('')}</div>`).join('') : '<p class="empty">לא נמצא</p>'}`;
+      body.querySelector('#sq').oninput = (e) => { sq = e.target.value.trim(); keepFocus(body, '#sq', draw); };
     } else if (tab === 'transfers') {
       drawTransfers(body, ctx, edit);
     } else if (tab === 'gear') {
@@ -58,13 +64,17 @@ export function render(el, ctx) {
         <tfoot><tr><th>סה"כ</th>${cols.map((t) => `<td><b>${sum(t) || '–'}</b></td>`).join('')}</tr></tfoot></table></div>`;
       if (edit) body.querySelectorAll('input[data-s]').forEach((inp) => { inp.onchange = () => setQty(ctx, inp.dataset.s, inp.dataset.t, Math.max(0, Math.min(99, parseInt(inp.value, 10) || 0))); });
     } else {
-      const rows = items.filter((i) => (!type || i.type === type) && (!q || `${i.serial} ${i.name} ${i.type} ${soldierName(st, i.holderId)}`.includes(q)));
+      const rows = items.filter((i) => (!type || i.type === type) && (!q || `${i.serial} ${i.name} ${i.type} ${soldierName(st, i.holderId)}`.includes(q))
+        && (!stat || (stat === 'signed' ? i.holderId : stat === 'store' ? !i.holderId : i.condition !== 'ok')));
       body.innerHTML = `<div class="bar"><select id="ftype" class="grow"><option value="">כל הסוגים</option>${opts([...new Set(items.map((i) => i.type))].map((t) => [t, t]), type)}</select>
         <input id="fq" type="search" placeholder="מספר / שם" value="${esc(q)}"></div>
+        <div class="seg sm">${STATS.map(([k, l]) => `<button data-stat="${k}" class="${stat === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+        <p class="muted">${rows.length} פריטים</p>
         <div class="card">${rows.map((i) => `<button class="row" data-item="${i.id}"><span class="grow"><div class="t">${esc(itemLabel(st, i))}</div></span>
           <span class="${i.condition !== 'ok' ? 'bad' : 'muted'}">${i.condition !== 'ok' ? CONDITIONS[i.condition] + ' · ' : ''}${i.holderId ? esc(soldierName(st, i.holderId)) : 'במחסן'}</span></button>`).join('') || '<p class="empty">לא נמצא</p>'}</div>`;
       body.querySelector('#ftype').onchange = (e) => { type = e.target.value; draw(); };
-      body.querySelector('#fq').oninput = (e) => { q = e.target.value.trim(); const pos = e.target.selectionStart; draw(); const n = body.querySelector('#fq'); n.focus(); n.setSelectionRange(pos, pos); };
+      body.querySelector('#fq').oninput = (e) => { q = e.target.value.trim(); keepFocus(body, '#fq', draw); };
+      body.querySelectorAll('[data-stat]').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); stat = b.dataset.stat; draw(); }; });
     }
   };
   draw();
@@ -91,15 +101,46 @@ function setQty(ctx, sid, t, n) {
 }
 
 function soldierSheet(ctx, sid) {
-  const { st } = ctx;
+  const { st, update } = ctx;
+  const edit = ctx.can('editEquipment');
   const g = st.equipment.filter((i) => i.holderId === sid);
   const s = sheet(`<h3>${esc(soldierName(st, sid))} — חתום על</h3>
-    <div class="card">${g.map((i) => `<button class="row" data-item="${i.id}"><b class="grow">${esc(itemLabel(st, i))}</b>${i.condition !== 'ok' ? `<span class="bad">${CONDITIONS[i.condition]}</span>` : ''}</button>`).join('') || '<p class="empty">לא חתום על ציוד</p>'}</div>
-    <div class="btnrow"><button class="btn ghost" data-close>סגור</button></div>`);
+    <div class="card">${g.map((i) => `<div class="row static"><button class="grow lnk" data-item="${i.id}"><b>${esc(itemLabel(st, i))}</b>${i.condition !== 'ok' ? ` <span class="bad">${CONDITIONS[i.condition]}</span>` : ''}</button>${edit ? `<button class="btn sm ghost" data-ret="${i.id}">החזר למחסן</button>` : ''}</div>`).join('') || '<p class="empty">לא חתום על ציוד</p>'}</div>
+    <div class="btnrow">${edit ? '<button class="btn" data-sign>חתום על ציוד</button>' : ''}<button class="btn ghost" data-close>סגור</button></div>`);
   s.el.onclick = (e) => {
-    if (e.target.closest('[data-close]')) s.close();
+    if (e.target.closest('[data-close]')) return s.close();
+    if (e.target.closest('[data-sign]')) { s.close(); return signSheet(ctx, sid); }
+    const ret = e.target.closest('[data-ret]');
+    if (ret) {
+      update((d) => { const x = d.equipment.find((i) => i.id === ret.dataset.ret); (x.log ||= []).push({ t: Date.now(), from: sid, to: null }); x.holderId = null; });
+      s.close(); toast('הוחזר למחסן'); return soldierSheet(ctx, sid);
+    }
     const it = e.target.closest('[data-item]');
     if (it) { s.close(); itemSheet(ctx, it.dataset.item); }
+  };
+}
+
+// Sign numbered items from the warehouse to a soldier: pick a type, tap the items.
+let signType = '';
+function signSheet(ctx, sid) {
+  const { st, update } = ctx;
+  const free = st.equipment.filter((i) => !i.holderId && !isCounted(st, i.type));
+  const types = [...new Set(free.map((i) => i.type))];
+  if (!types.length) { toast('אין ציוד פנוי במחסן. הוסף ציוד בכפתור "ציוד"'); return soldierSheet(ctx, sid); }
+  if (!types.includes(signType)) signType = types[0];
+  const list = free.filter((i) => i.type === signType);
+  const s = sheet(`<h3>חתימה על ציוד · ${esc(soldierName(st, sid))}</h3>
+    <label>סוג<select id="stype">${opts(types.map((t) => [t, `${t} (${free.filter((i) => i.type === t).length} במחסן)`]), signType)}</select></label>
+    <div class="card pick">${list.map((i) => `<button class="row" data-sign="${i.id}"><b class="grow">${esc(itemLabel(st, i))}</b><span class="${i.condition !== 'ok' ? 'bad' : 'muted'}">${i.condition !== 'ok' ? CONDITIONS[i.condition] : ''}</span></button>`).join('')}</div>
+    <div class="btnrow"><button class="btn ghost" data-close>סיום</button></div>`);
+  s.el.querySelector('#stype').onchange = (e) => { signType = e.target.value; s.close(); signSheet(ctx, sid); };
+  s.el.onclick = (e) => {
+    if (e.target.closest('[data-close]')) { s.close(); return soldierSheet(ctx, sid); }
+    const b = e.target.closest('[data-sign]');
+    if (b) {
+      update((d) => { const x = d.equipment.find((i) => i.id === b.dataset.sign); (x.log ||= []).push({ t: Date.now(), from: null, to: sid }); x.holderId = sid; });
+      toast('נחתם'); s.close(); signSheet(ctx, sid);
+    }
   };
 }
 

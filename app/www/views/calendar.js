@@ -3,6 +3,7 @@ import { holidays, hebDayStr, isShabbat, WEEKDAYS_SHORT } from '../lib/hebdate.j
 import { presenceOn, jobCoverage, roundInfo } from '../lib/status.js';
 import { dayOverall } from '../lib/checks.js';
 import { openDaySheet } from './daysheet.js';
+import { openPresenceSheet } from './presenceplan.js';
 import { icon } from '../lib/icons.js';
 
 const MONTH = new Intl.DateTimeFormat('he', { month: 'long', year: 'numeric' });
@@ -36,6 +37,7 @@ export function render(el, ctx) {
       ${pres ? `<span class="n${gap ? ' gap' : ''}">${pres.present.length}</span>` : ''}</button>`);
   }
   el.innerHTML = `
+    ${staff && ctx.can('editRequests') ? `<div class="bar"><button class="btn block" data-act="plan">${icon('users')}תכנון נוכחות לפי תאריכים</button></div>` : ''}
     <div class="daynav"><button class="nav" data-act="prev" aria-label="חודש קודם">${icon('chevronR')}</button>
       <div class="daytitle">${MONTH.format(first)}<br><small class="muted">${esc(st.round.name)} · ${fmtDay(st.round.start)} עד ${fmtDay(st.round.end)}</small></div>
       <button class="nav" data-act="next" aria-label="חודש הבא">${icon('chevron')}</button></div>
@@ -45,6 +47,7 @@ export function render(el, ctx) {
   el.onclick = (e) => {
     const b = e.target.closest('button');
     if (!b) return;
+    if (b.dataset.act === 'plan') return openPresenceSheet(ctx, { onChange: () => render(el, ctx) });
     if (b.dataset.act) { anchor = at(y, m + (b.dataset.act === 'next' ? 1 : -1), 1); return render(el, ctx); }
     if (b.dataset.ts) openDaySheet(ctx, +b.dataset.ts, () => render(el, ctx));
   };

@@ -3,7 +3,7 @@ import { GOOGLE } from './config.js';
 
 const API = 'https://www.googleapis.com/drive/v3';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
-const FIELDS = 'id,name,version,modifiedTime,capabilities/canEdit,owners/emailAddress';
+const FIELDS = 'id,name,version,md5Checksum,modifiedTime,capabilities/canEdit,owners/emailAddress';
 const TOK = 'platoon.tok', HINT = 'platoon.gsignin';
 
 let token = null, expiresAt = 0, client = null;
